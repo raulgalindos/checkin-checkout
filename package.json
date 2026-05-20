@@ -1,0 +1,20 @@
+{
+  "name": "checkin-checkout",
+  "version": "1.0.0",
+  "description": "Automatización de check in / check out en Microsoft Teams",
+  "main": "index.ts",
+  "scripts": {
+    "checkin": "npx ts-node index.ts checkin",
+    "checkout": "npx ts-node index.ts checkout"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^20.14.12",
+    "dotenv": "^16.3.1",
+    "otpauth": "^9.3.1",
+    "playwright": "^1.48.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0",
+    "xlsx": "^0.18.5"
+  }
+}

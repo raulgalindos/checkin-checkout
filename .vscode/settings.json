@@ -1,0 +1,17 @@
+{
+  "files.exclude": {
+    "node_modules": true,
+    ".gitignore": false,
+    "session": false,
+    ".env": false,
+    "package-lock.json": true,
+    "package.json": false,
+    "tsconfig.json": false,
+    ".github": false,
+    "test-results": false,
+    "playwright": false,
+    "dist": false,
+    "**/*.js": false,
+    "**/*.js.map": false
+  }
+}

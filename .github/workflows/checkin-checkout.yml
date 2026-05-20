@@ -1,0 +1,48 @@
+name: Check In / Check Out
+
+on:
+  workflow_dispatch:
+    inputs:
+      accion:
+        description: "Action to run"
+        required: true
+        default: "checkin"
+        type: choice
+        options:
+          - checkin
+          - checkout
+
+jobs:
+  automation:
+    name: Run automation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: Run ${{ inputs.accion }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 30
+          command: npm run ${{ inputs.accion }}
+        env:
+          M365_USERNAME: ${{ secrets.M365_USERNAME }}
+          M365_PASSWORD: ${{ secrets.M365_PASSWORD }}
+          M365_OTP_SECRET: ${{ secrets.M365_OTP_SECRET }}
+          PTO_CALENDAR_NAME: ${{ secrets.PTO_CALENDAR_NAME }}
