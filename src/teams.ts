@@ -1,81 +1,72 @@
-import { Page, Locator } from "playwright";
+import { Page } from "playwright";
+import { Action, pickMessage } from "./action";
 
 const TEAMS_URL = "https://teams.microsoft.com";
-const DEFAULT_TIMEOUT_MS = 0;
-const FRIDA_XPATH =
+// Teams can take a long time to render the sidebar; the CI job timeout is the real ceiling.
+const NO_TIMEOUT_MS = 0;
+const STEP_TIMEOUT_MS = 30_000;
+const SENDING_INDICATOR_TIMEOUT_MS = 5_000;
+// Keep the session open after sending so Frida's reply is registered before we leave.
+const POST_SEND_WAIT_MS = 60_000;
+
+const FRIDA_SIDEBAR_XPATH =
   "//div[contains(@class,'fui-TreeItemLayout__main')]//span[text()='Frida Assistant']";
+const FRIDA_AUTHOR_XPATH =
+  "//span[@data-tid='message-author-name' and text()='Frida Assistant']";
 
-const CHECKIN_VARIATIONS = ["check in", "Check in"];
-const CHECKOUT_VARIATIONS = ["check out", "Check out"];
+export async function sendCheckMessage(page: Page, action: Action): Promise<void> {
+  const message = pickMessage(action);
 
-async function waitForElement(
-  page: Page,
-  xpath: string,
-  timeoutMs: number = DEFAULT_TIMEOUT_MS,
-): Promise<Locator> {
-  const locator = page.locator(`xpath=${xpath}`);
-  await locator.waitFor({ state: "visible", timeout: timeoutMs });
-  return locator;
-}
-
-export async function sendMessage(page: Page, accion: string): Promise<void> {
-  const isCheckIn = accion === "check in";
-  const variations = isCheckIn ? CHECKIN_VARIATIONS : CHECKOUT_VARIATIONS;
-  const mensaje = variations[Math.floor(Math.random() * variations.length)];
-
-  console.log(`Starting ${accion}...`);
+  console.log(`Starting ${action}...`);
   console.log("Navigating to Microsoft Teams...");
   await page.goto(TEAMS_URL, { waitUntil: "domcontentloaded" });
   console.log("Teams loaded ✓");
 
-  // 1. Wait and click Frida in the sidebar
   console.log("Waiting for Frida Assistant...");
-  const frida = await waitForElement(page, FRIDA_XPATH);
+  const frida = page.locator(`xpath=${FRIDA_SIDEBAR_XPATH}`);
+  await frida.waitFor({ state: "visible", timeout: NO_TIMEOUT_MS });
   await frida.click();
   console.log("Clicked Frida ✓");
 
-  // 2. Wait for Frida chat to open
   console.log("Waiting for chat to open...");
   await page
-    .locator("//span[@data-tid='message-author-name' and text()='Frida Assistant']")
+    .locator(`xpath=${FRIDA_AUTHOR_XPATH}`)
     .first()
-    .waitFor({ state: "visible", timeout: DEFAULT_TIMEOUT_MS });
+    .waitFor({ state: "visible", timeout: NO_TIMEOUT_MS });
   console.log("Frida chat opened ✓");
 
-  // 3. Type message
-  console.log(`Typing "${mensaje}"...`);
+  console.log(`Typing "${message}"...`);
   const input = page.locator("[data-tid='ckeditor']");
-  await input.waitFor({ state: "visible", timeout: 30_000 });
+  await input.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
   await input.click();
   await page.keyboard.press("Control+a");
   await page.keyboard.press("Delete");
-  await page.keyboard.type(mensaje, { delay: 100 });
+  await page.keyboard.type(message, { delay: 100 });
   console.log("Message typed ✓");
 
-  // 4. Click send
   console.log("Sending message...");
-  const sendBtn = await waitForElement(page, "//button[@name='send']", 30_000);
-  await sendBtn.click();
+  const sendButton = page.locator("xpath=//button[@name='send']");
+  await sendButton.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+  await sendButton.click();
 
-  // Try to catch "sending" indicator — may be too fast
+  // The "sending" state is often too brief to observe; it is not required
   try {
     await page
       .locator("[aria-label='Enviando...']")
       .last()
-      .waitFor({ state: "visible", timeout: 5_000 });
+      .waitFor({ state: "visible", timeout: SENDING_INDICATOR_TIMEOUT_MS });
     console.log("Sending indicator detected ✓");
   } catch {
     // Went too fast, that's fine
   }
 
-  // Wait for sent confirmation
   console.log("Waiting for sent confirmation...");
   await page
     .locator("[aria-label='Enviado']")
     .last()
-    .waitFor({ state: "visible", timeout: 30_000 });
+    .waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
   console.log("Message sent ✓");
 
-  await page.waitForTimeout(60_000);
-  console.log(`${accion} completed ✓`);
+  await page.waitForTimeout(POST_SEND_WAIT_MS);
+  console.log(`${action} completed ✓`);
 }

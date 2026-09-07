@@ -1,51 +1,48 @@
 import { Page } from "playwright";
-import { generateTOTP } from "./utils";
+import { Config } from "./config";
+import { generateTotp } from "./totp";
 
-export async function login(page: Page): Promise<void> {
+const LOGIN_URL = "https://login.microsoftonline.com";
+const STEP_TIMEOUT_MS = 30_000;
+const OPTIONAL_STEP_TIMEOUT_MS = 5_000;
+
+/** Clicks the element if it shows up in time; optional prompts may not appear. */
+async function clickIfVisible(page: Page, selector: string): Promise<boolean> {
+  const locator = page.locator(selector);
+  try {
+    await locator.waitFor({ state: "visible", timeout: OPTIONAL_STEP_TIMEOUT_MS });
+    await locator.click();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function fillAndSubmit(page: Page, selector: string, value: string): Promise<void> {
+  const input = page.locator(selector);
+  await input.waitFor({ state: "visible", timeout: STEP_TIMEOUT_MS });
+  await input.fill(value);
+  await page.locator("input[type='submit']").click();
+}
+
+export async function login(page: Page, config: Config): Promise<void> {
   console.log("Starting Microsoft login...");
-  await page.goto("https://login.microsoftonline.com", { waitUntil: "domcontentloaded" });
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
 
-  // Email
-  const emailInput = page.locator("input[type='email']");
-  await emailInput.waitFor({ state: "visible", timeout: 30_000 });
-  await emailInput.fill(process.env.M365_USERNAME || "");
-  await page.locator("input[type='submit']").click();
+  await fillAndSubmit(page, "input[type='email']", config.username);
+  await fillAndSubmit(page, "input[type='password']", config.password);
 
-  // Password
-  const passwordInput = page.locator("input[type='password']");
-  await passwordInput.waitFor({ state: "visible", timeout: 30_000 });
-  await passwordInput.fill(process.env.M365_PASSWORD || "");
-  await page.locator("input[type='submit']").click();
-
-  // Switch to TOTP if Microsoft Authenticator is primary
-  try {
-    const otherWayLink = page.locator("a#signInAnotherWay");
-    await otherWayLink.waitFor({ state: "visible", timeout: 5_000 });
-    await otherWayLink.click();
-    const otpOption = page.locator("div[data-value='PhoneAppOTP']");
-    await otpOption.waitFor({ state: "visible", timeout: 5_000 });
-    await otpOption.click();
-  } catch {
-    // Already on TOTP step
+  // Switch to TOTP when Microsoft Authenticator push is the primary method
+  const switchedMethod = await clickIfVisible(page, "a#signInAnotherWay");
+  if (switchedMethod) {
+    await clickIfVisible(page, "div[data-value='PhoneAppOTP']");
   }
 
-  // Enter TOTP code
-  const otpInput = page.locator("input#idTxtBx_SAOTCC_OTC");
-  await otpInput.waitFor({ state: "visible", timeout: 30_000 });
-  await otpInput.fill(generateTOTP());
+  const totp = generateTotp(config.otpSecret, config.username);
+  await fillAndSubmit(page, "input#idTxtBx_SAOTCC_OTC", totp);
 
-  const submitOtp = page.locator("input[type='submit']");
-  await submitOtp.waitFor({ state: "visible", timeout: 10_000 });
-  await submitOtp.click();
-
-  // Stay signed in
-  try {
-    const staySignedIn = page.locator("#idSIButton9");
-    await staySignedIn.waitFor({ state: "visible", timeout: 5_000 });
-    await staySignedIn.click();
-  } catch {
-    // Prompt did not appear
-  }
+  // "Stay signed in?" prompt does not always appear
+  await clickIfVisible(page, "#idSIButton9");
 
   console.log("Login successful ✓");
 }

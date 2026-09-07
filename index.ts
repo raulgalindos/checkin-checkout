@@ -1,48 +1,46 @@
-import * as fs from "fs";
-import { buildBrowser } from "./src/utils";
+import { loadConfig } from "./src/config";
+import { parseAction } from "./src/action";
+import { openBrowser, closeBrowser } from "./src/browser";
 import { login } from "./src/login";
-import { sendMessage } from "./src/teams";
+import { sendCheckMessage } from "./src/teams";
 
-if (!process.env.CI) {
-  if (!fs.existsSync(".env")) {
-    console.error("[ERROR] .env file not found");
-    process.exit(1);
-  }
-  require("dotenv").config({ path: ".env" });
+const MAX_START_DELAY_MS = 5 * 60 * 1000;
+const ERROR_SCREENSHOT_PATH = "debug-error.png";
+
+/** Random start delay so scheduled runs do not land at the exact same second. */
+async function waitRandomDelay(): Promise<void> {
+  const delayMs = Math.floor(Math.random() * MAX_START_DELAY_MS);
+  const minutes = Math.floor(delayMs / 60_000);
+  const seconds = Math.floor((delayMs % 60_000) / 1000);
+  console.log(`Waiting ${minutes} minutes and ${seconds} seconds before starting...`);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
-const accion = process.argv[2] === "checkout" ? "check out" : "check in";
-
-// ─── Main ────────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
-  // Only wait in CI — skip delay when running locally
-  if (process.env.CI) {
-    const randomDelay = Math.floor(Math.random() * 5 * 60 * 1000);
-    console.log(
-      `Waiting ${Math.floor(randomDelay / 60000)} minutes and ${Math.floor((randomDelay % 60000) / 1000)} seconds before starting...`,
-    );
-    await new Promise((resolve) => setTimeout(resolve, randomDelay));
+  const config = loadConfig();
+  const action = parseAction(process.argv[2]);
+
+  // Only delay in CI — run immediately when testing locally
+  if (config.isCI) {
+    await waitRandomDelay();
   }
 
-  const { context, page } = await buildBrowser();
-
-  let hasError = false;
+  const session = await openBrowser(config.isCI);
 
   try {
-    await login(page);
-    await sendMessage(page, accion);
+    await login(session.page, config);
+    await sendCheckMessage(session.page, action);
   } catch (err) {
-    console.error("Automation error:", err);
-    try {
-      await page.screenshot({ path: "debug-error.png" });
-    } catch {
-      // screenshot failed, ignore
-    }
-    hasError = true;
+    await session.page.screenshot({ path: ERROR_SCREENSHOT_PATH }).catch(() => {});
+    throw err;
   } finally {
-    await context.close();
-    process.exit(hasError ? 1 : 0);
+    await closeBrowser(session);
   }
 }
 
-main();
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("Automation error:", err);
+    process.exit(1);
+  });
