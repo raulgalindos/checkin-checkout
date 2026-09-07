@@ -97,17 +97,52 @@ No necesitas hacer nada más.
 
 ---
 
+## Renovación de contraseña (cada 3 meses)
+
+Softtek obliga a cambiar la contraseña cada 3 meses. Cuando eso pasa, la automatización deja de funcionar hasta que hagas estos dos pasos. No basta con uno solo.
+
+### 1. Actualizar el secret en GitHub
+
+1. En tu fork ve a **Settings → Secrets and variables → Actions**
+2. En `M365_PASSWORD` click en **Update**
+3. Escribe la contraseña nueva y guarda
+
+Si no actualizas este secret, el workflow falla en el login.
+
+### 2. Volver a iniciar sesión en Frida
+
+Después de cambiar la contraseña, Microsoft cierra las sesiones activas y Frida Assistant deja de responder hasta que vuelvas a entrar manualmente.
+
+1. Abre Microsoft Teams
+2. Inicia sesión con tu contraseña nueva
+3. Abre el chat de **Frida Assistant** y manda un mensaje cualquiera para confirmar que responde
+
+Si no haces esto, el workflow puede llegar hasta Teams pero el mensaje no se registra.
+
+### 3. Verificar
+
+Dispara el workflow a mano desde la pestaña **Actions** → **Check In / Check Out** → **Run workflow** y confirma que termina en verde.
+
+> El TOTP secret (`M365_OTP_SECRET`) **no** cambia al renovar la contraseña. Solo tendrás que regenerarlo si eliminas el método de autenticación.
+
+---
+
 ## Solución de problemas
 
 **El workflow falla con error de login:**
 
 - Verifica que tus secrets estén correctamente escritos en Settings
-- Verifica que tu password de Softtek no haya cambiado
+- Verifica que tu password de Softtek no haya cambiado — si la renovaste, sigue los pasos de [Renovación de contraseña](#renovación-de-contraseña-cada-3-meses)
 
 **El TOTP secret expiró o fue eliminado:**
 
 - Repite el paso 1 para obtener un nuevo secret
 - Actualiza el secret `M365_OTP_SECRET` en GitHub Settings
+
+**El mensaje no se registra aunque el workflow termine en verde:**
+
+- Abre Teams a mano y confirma que Frida Assistant responde
+- Si acabas de cambiar tu contraseña, vuelve a iniciar sesión en Teams
 
 **El workflow no corre a la hora:**
 
