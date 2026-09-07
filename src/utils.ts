@@ -1,6 +1,5 @@
 import { chromium, BrowserContext, Page } from "playwright";
 import * as OTPAuth from "otpauth";
-import * as fs from "fs";
 
 export async function buildBrowser(): Promise<{ context: BrowserContext; page: Page }> {
   const browser = await chromium.launch({
@@ -33,17 +32,4 @@ export function generateTOTP(): string {
     secret: process.env.M365_OTP_SECRET,
   });
   return totp.generate();
-}
-
-export async function downloadFile(
-  page: Page,
-  url: string,
-  filename: string,
-): Promise<void> {
-  const [download] = await Promise.all([
-    page.waitForEvent("download"),
-    page.goto(url).catch(() => {}),
-  ]);
-  const path = await download.path();
-  fs.copyFileSync(path!, filename);
 }

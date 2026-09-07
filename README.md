@@ -42,14 +42,13 @@ Este es el paso más importante. Necesitas agregar un método de autenticación 
 ### 4. Agregar tus credenciales
 
 1. En tu fork ve a **Settings → Secrets and variables → Actions**
-2. Click en **New repository secret** y agrega estos 4 secrets uno por uno:
+2. Click en **New repository secret** y agrega estos 3 secrets uno por uno:
 
 | Nombre              | Valor                                                 |
 | ------------------- | ----------------------------------------------------- |
 | `M365_USERNAME`     | Tu email de Softtek (ej: nombre.apellido@softtek.com) |
 | `M365_PASSWORD`     | Tu password de Softtek                                |
 | `M365_OTP_SECRET`   | La clave secreta que copiaste en el paso 1            |
-| `PTO_CALENDAR_NAME` | Tu nombre corto en el PTO Calendar (ej: Juan Lopez)   |
 
 ### 5. Configurar cron-job.org
 

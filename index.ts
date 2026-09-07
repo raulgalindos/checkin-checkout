@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import { buildBrowser } from "./src/utils";
 import { login } from "./src/login";
-import { isOnPTO } from "./src/pto";
 import { sendMessage } from "./src/teams";
 
 if (!process.env.CI) {
@@ -31,13 +30,6 @@ async function main(): Promise<void> {
 
   try {
     await login(page);
-
-    const onPTO = await isOnPTO(page);
-    if (onPTO) {
-      console.log("User is on PTO today — skipping check in/out ✓");
-      return;
-    }
-
     await sendMessage(page, accion);
   } catch (err) {
     console.error("Automation error:", err);
